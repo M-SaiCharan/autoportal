@@ -1,0 +1,54 @@
+name: release
+
+# Push a tag like v0.1.0 to build every platform and publish a GitHub release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  linux-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - run: make dist VERSION=${{ github.ref_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-windows
+          path: dist/*
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - run: sh scripts/package-macos.sh ${{ github.ref_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/autoportal-macos.zip
+
+  publish:
+    needs: [linux-windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt
+      - name: publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" dist/* --title "${{ github.ref_name }}" --generate-notes

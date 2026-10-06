@@ -1,0 +1,9 @@
+/dist/
+/autoportal
+/autoportal.exe
+
+# Pages saved from the college portal while researching the protocol.
+# They are Sophos's code and college-specific, so keep them out of the repo.
+/httpclient.html
+/httpclient.js
+/cyberoamAjax.js
