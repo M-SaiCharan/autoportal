@@ -21,7 +21,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: linux-windows
-          path: dist/*
+          path: dist/autoportal-*
 
   macos:
     runs-on: macos-latest

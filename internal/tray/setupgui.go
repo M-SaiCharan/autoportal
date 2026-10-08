@@ -18,6 +18,8 @@ var dlgTitle = zenity.Title("autoportal")
 
 func showError(msg string) { _ = zenity.Error(msg, dlgTitle) }
 
+func showInfo(msg string) { _ = zenity.Info(msg, dlgTitle) }
+
 // runSetup walks the user through setup with native dialogs. It returns
 // quietly if the user cancels at any point.
 func runSetup(ctx context.Context, a *app.App) {

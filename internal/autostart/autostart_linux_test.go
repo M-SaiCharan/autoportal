@@ -11,6 +11,7 @@ import (
 
 func TestEnableDisable(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	if Enabled() {
 		t.Fatal("enabled before Enable")
 	}
@@ -25,8 +26,24 @@ func TestEnableDisable(t *testing.T) {
 	if !strings.Contains(string(b), `Exec="/home/a b/\$x/autoportal" tray`) {
 		t.Fatalf("bad Exec line:\n%s", b)
 	}
+	mp, _ := menuEntryPath()
+	if b, err := os.ReadFile(mp); err != nil || !strings.Contains(string(b), "Icon=autoportal") ||
+		strings.Contains(string(b), "Autostart") {
+		t.Fatalf("app-menu entry: %v\n%s", err, b)
+	}
+	ip, _ := iconPath()
+	if _, err := os.Stat(ip); err != nil {
+		t.Fatalf("icon: %v", err)
+	}
 	if err := Disable(); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(mp); err != nil {
+		t.Fatal("Disable removed the app-menu entry; it should stay so the app can be reopened")
+	}
+	removeExtras()
+	if _, err := os.Stat(mp); !os.IsNotExist(err) {
+		t.Fatal("app-menu entry survived uninstall")
 	}
 	if Enabled() {
 		t.Fatal("still enabled after Disable")

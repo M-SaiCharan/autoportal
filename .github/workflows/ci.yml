@@ -27,5 +27,7 @@ jobs:
       - name: test (race)
         if: runner.os == 'Linux'
         run: go test -race ./...
+      - name: assets
+        run: go run ./tools/genassets -out dist/assets
       - name: build
         run: go build ./cmd/autoportal

@@ -84,3 +84,5 @@ func Enabled() bool {
 	_, err = os.Stat(p)
 	return err == nil
 }
+
+func removeExtras() {}
