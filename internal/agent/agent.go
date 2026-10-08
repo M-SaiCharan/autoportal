@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/M-SaiCharan/autoportal/internal/netwatch"
@@ -109,6 +110,9 @@ type Options struct {
 	Notify func(title, text string)
 	// NotifyOnLogin also notifies after every successful automatic login.
 	NotifyOnLogin bool
+	// OnLogin is called after a login that brought the internet back (not
+	// after a precautionary re-login while already online); may be nil.
+	OnLogin func(at time.Time)
 	// StartPaused starts with auto-login off (the user logged out earlier).
 	StartPaused bool
 	// Session is the initial session; nil means not set up.
@@ -126,6 +130,8 @@ type Agent struct {
 	opt  Options
 	log  *slog.Logger
 	cmds chan command
+
+	notifyOnLogin atomic.Bool
 
 	// Owned by the Run goroutine.
 	sess       *Session
@@ -161,7 +167,7 @@ func New(opt Options) *Agent {
 	if opt.Logger == nil {
 		opt.Logger = slog.New(slog.DiscardHandler)
 	}
-	return &Agent{
+	a := &Agent{
 		opt:        opt,
 		log:        opt.Logger,
 		cmds:       make(chan command),
@@ -170,7 +176,12 @@ func New(opt Options) *Agent {
 		forceLogin: true, // first check after start-up always logs in
 		state:      State{Kind: Checking},
 	}
+	a.notifyOnLogin.Store(opt.NotifyOnLogin)
+	return a
 }
+
+// SetNotifyOnLogin changes whether successful logins are announced.
+func (a *Agent) SetNotifyOnLogin(on bool) { a.notifyOnLogin.Store(on) }
 
 // State returns the current state.
 func (a *Agent) State() State {
@@ -353,7 +364,10 @@ func (a *Agent) login(ctx context.Context, conn netwatch.Connectivity) {
 		a.forceLogin = false
 		a.log.Info("login ok", "connectivity_before", conn.String(), "message", res.Message)
 		a.setSignedIn(res.Message)
-		if prev != SignedIn && a.opt.NotifyOnLogin {
+		if conn != netwatch.Online && a.opt.OnLogin != nil {
+			a.opt.OnLogin(a.opt.Now())
+		}
+		if prev != SignedIn && a.notifyOnLogin.Load() {
 			a.notify("Signed in", res.Message)
 		}
 	case portal.IsRejected(err):

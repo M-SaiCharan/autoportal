@@ -8,17 +8,21 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"golang.org/x/term"
 
 	"github.com/M-SaiCharan/autoportal/internal/autostart"
+	"github.com/M-SaiCharan/autoportal/internal/doctor"
+	"github.com/M-SaiCharan/autoportal/internal/history"
 	"github.com/M-SaiCharan/autoportal/internal/instance"
 	"github.com/M-SaiCharan/autoportal/internal/netwatch"
 	"github.com/M-SaiCharan/autoportal/internal/portal"
 	"github.com/M-SaiCharan/autoportal/internal/setup"
 	"github.com/M-SaiCharan/autoportal/internal/store"
+	"github.com/M-SaiCharan/autoportal/internal/update"
 
 	_ "github.com/M-SaiCharan/autoportal/internal/portal/sophos" // register driver
 )
@@ -298,6 +302,56 @@ func cmdStatus() error {
 	fmt.Printf("  portal:     %s (%s)\n", cfg.Portal.URL, cfg.Portal.Title)
 	fmt.Printf("  user:       %s\n", cfg.Username)
 	fmt.Printf("  auto-login: %s · agent running: %s · starts at login: %s\n", auto, running, startup)
+	if dir, err := store.StateDir(); err == nil {
+		now := time.Now()
+		fmt.Printf("  history:    %s\n", history.Open(filepath.Join(dir, "history.json")).Stats(now).Line(now))
+	}
+	return nil
+}
+
+func cmdDoctor() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	exe, _ := autostart.Executable()
+	in := doctor.Inputs{Version: version, Exe: exe, Updater: &update.Updater{Current: version, Exe: exe}}
+	if dir, err := store.StateDir(); err == nil {
+		in.LogPath = filepath.Join(dir, "autoportal.log")
+		in.History = history.Open(filepath.Join(dir, "history.json"))
+	}
+	rep := doctor.Run(ctx, in)
+	fmt.Print(rep)
+	if n := rep.Problems(); n > 0 {
+		return fmt.Errorf("%d problem(s) found", n)
+	}
+	return nil
+}
+
+func cmdUpdate() error {
+	exe, err := autostart.Executable()
+	if err != nil {
+		return err
+	}
+	u := &update.Updater{Current: version, Exe: exe}
+	if err := u.Supported(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	tag, err := u.Check(ctx)
+	if err != nil {
+		return err
+	}
+	if tag == "" {
+		fmt.Println("autoportal", version, "is the latest version.")
+		return nil
+	}
+	fmt.Printf("Installing %s… ", tag)
+	if err := u.Apply(ctx, tag); err != nil {
+		fmt.Println()
+		return err
+	}
+	fmt.Println("done.")
+	fmt.Println("If autoportal is running, it picks up the new version within a day; quit and reopen it to switch now.")
 	return nil
 }
 
@@ -325,6 +379,11 @@ func cmdUninstall(args []string) error {
 	}
 	if err := store.Remove(); err != nil {
 		return err
+	}
+	if dir, err := store.StateDir(); err == nil {
+		for _, name := range []string{"history.json", "diagnostics.txt"} {
+			_ = history.Remove(filepath.Join(dir, name))
+		}
 	}
 	fmt.Println("Settings and saved password deleted.")
 	return nil

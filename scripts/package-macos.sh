@@ -13,7 +13,10 @@ LDFLAGS="-s -w -X main.version=${VERSION}"
 [ "$(uname -s)" = "Darwin" ] || { echo "run this on macOS" >&2; exit 1; }
 
 rm -rf "$APP" dist/autoportal-macos.zip
-mkdir -p "$APP/Contents/MacOS" dist
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" dist
+
+go run ./tools/genassets -version "$VERSION" -out dist/assets -syso dist/assets
+cp dist/assets/autoportal.icns "$APP/Contents/Resources/autoportal.icns"
 
 for arch in arm64 amd64; do
 	CGO_ENABLED=1 GOOS=darwin GOARCH=$arch MACOSX_DEPLOYMENT_TARGET=12.0 \
@@ -38,6 +41,10 @@ cat > "$APP/Contents/Info.plist" <<EOF
 	<key>LSMinimumSystemVersion</key>     <string>12.0</string>
 	<key>LSUIElement</key>                <true/>
 	<key>NSHighResolutionCapable</key>    <true/>
+	<key>CFBundleIconFile</key>           <string>autoportal</string>
+	<key>NSHumanReadableCopyright</key>   <string>Copyright (c) Sai Charan. MIT License.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>autoportal needs this to reach your campus Wi-Fi login page (for example 10.10.10.2) and sign you in.</string>
 </dict>
 </plist>
 EOF

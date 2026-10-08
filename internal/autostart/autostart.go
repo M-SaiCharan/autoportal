@@ -84,6 +84,7 @@ func Uninstall() error {
 	if err := Disable(); err != nil {
 		return err
 	}
+	removeExtras()
 	target, err := InstallPath()
 	if err != nil || target == "" {
 		return err

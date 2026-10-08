@@ -296,3 +296,35 @@ func TestRunEndToEnd(t *testing.T) {
 		t.Fatal("LoginNow did not log in")
 	}
 }
+
+func TestOnLoginCountsOnlyRestoringLogins(t *testing.T) {
+	var at []time.Time
+	h := newHarness()
+	h.a.opt.OnLogin = func(t time.Time) { at = append(at, t) }
+
+	h.p.conn = netwatch.Online
+	h.a.check(ctx) // precautionary start-up login while online: not counted
+	if h.f.logins != 1 || len(at) != 0 {
+		t.Fatalf("logins=%d recorded=%d", h.f.logins, len(at))
+	}
+	h.p.conn = netwatch.Blocked
+	h.a.check(ctx) // session dropped, login restores it: counted
+	if h.f.logins != 2 || len(at) != 1 {
+		t.Fatalf("logins=%d recorded=%d", h.f.logins, len(at))
+	}
+}
+
+func TestNotifyOnLoginToggle(t *testing.T) {
+	h := newHarness()
+	h.p.conn = netwatch.Blocked
+	h.a.check(ctx)
+	if len(h.notified) != 0 {
+		t.Fatalf("notified by default: %v", h.notified)
+	}
+	h.a.SetNotifyOnLogin(true)
+	h.a.set(State{Kind: OffCampus})
+	h.a.check(ctx)
+	if len(h.notified) != 1 || h.notified[0] != "Signed in" {
+		t.Fatalf("notified = %v", h.notified)
+	}
+}

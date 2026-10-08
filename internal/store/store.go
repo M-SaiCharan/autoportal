@@ -31,6 +31,8 @@ type Config struct {
 	// NotifyOnLogin shows a notification after each automatic login.
 	// Off by default: the whole point is not to notice.
 	NotifyOnLogin bool `json:"notify_on_login,omitempty"`
+	// NoAutoUpdate turns off installing new releases automatically.
+	NoAutoUpdate bool `json:"no_auto_update,omitempty"`
 }
 
 // PortalConfig identifies the captive portal.

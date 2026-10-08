@@ -27,5 +27,16 @@ jobs:
       - name: test (race)
         if: runner.os == 'Linux'
         run: go test -race ./...
+      - name: assets
+        run: go run ./tools/genassets -out dist/assets
       - name: build
         run: go build ./cmd/autoportal
+      # A ready-to-try macOS app for every pull request (Actions → run → Artifacts).
+      - name: package macOS app
+        if: runner.os == 'macOS' && github.event_name == 'pull_request'
+        run: sh scripts/package-macos.sh v0.0.0-pr${{ github.event.number }}
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'macOS' && github.event_name == 'pull_request'
+        with:
+          name: autoportal-macos-test
+          path: dist/autoportal-macos.zip

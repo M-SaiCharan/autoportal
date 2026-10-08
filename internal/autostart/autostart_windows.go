@@ -49,3 +49,5 @@ func Enabled() bool {
 	_, _, err = k.GetStringValue(valueName)
 	return err == nil
 }
+
+func removeExtras() {}
